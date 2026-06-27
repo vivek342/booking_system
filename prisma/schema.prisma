@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+model BusinessOwner {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  name         String
+  phone        String?
+  businessName String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  services       Service[]
+  availabilities Availability[]
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings Booking[]
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  ownerId     String
+  name        String
+  description String?
+  durationMin Int      // service duration in minutes e.g. 30, 60
+  price       Decimal  @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner    BusinessOwner @relation(fields: [ownerId], references: [id])
+  bookings Booking[]
+
+  @@index([ownerId])
+}
+
+model Availability {
+  id        String    @id @default(uuid())
+  ownerId   String
+  dayOfWeek DayOfWeek
+  startTime String    // stored as "HH:mm" e.g. "09:00"
+  endTime   String    // stored as "HH:mm" e.g. "17:00"
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  owner BusinessOwner @relation(fields: [ownerId], references: [id])
+
+  @@unique([ownerId, dayOfWeek]) // one availability window per day per owner
+}
+
+model Booking {
+  id         String        @id @default(uuid())
+  serviceId  String
+  customerId String
+  date       DateTime      @db.Date  // date only, no time component
+  startTime  String        // "HH:mm"
+  endTime    String        // "HH:mm" — computed at booking time (startTime + durationMin)
+  status     BookingStatus @default(CONFIRMED)
+  notes      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  service  Service  @relation(fields: [serviceId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([serviceId, date])
+  @@index([customerId])
+}
